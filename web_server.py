@@ -366,7 +366,10 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         if (raw_path.startswith("/avatar") or raw_path.startswith("/social") or 
             raw_path.startswith("/create") or raw_path.startswith("/activate") or
             raw_path.startswith("/penguin") or "autocomplete" in raw_path):
-            if self.proxy_to_dash(self.path, method="GET"):
+            dash_path = self.path
+            if raw_path.startswith("/avatar/"):
+                dash_path = re.sub(r'^/avatar/(\d+)/[a-zA-Z]+', r'/avatar/\1', self.path)
+            if self.proxy_to_dash(dash_path, method="GET"):
                 return
 
         # 2. Disney Friends / datatech API stubs

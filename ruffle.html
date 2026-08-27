@@ -41,6 +41,15 @@
             top: 80px;
             right: 20px;
         }
+        /* Hide background error text when Add Friend result card is shown */
+        #D_F_AddFriendResults:not(:empty) {
+            position: relative;
+            z-index: 10;
+        }
+        #D_F_AddFriendResults:not(:empty) ~ #D_F_AddFriendError,
+        #D_F_AddFriendResults:not(:empty) + #D_F_AddFriendError {
+            display: none !important;
+        }
     </style>
 
     <!-- 1. Ruffle config MUST be defined before the library -->
@@ -195,11 +204,13 @@
                                         if (resp && resp.payload && resp.payload.data && resp.payload.data.id > 0) {
                                             var d = resp.payload.data;
                                             console.log("[Friends] Found player:", d);
+                                            $("#D_F_AddFriendError").empty().hide();
                                             Disney.Friends.API.foundPlayer({
                                                 name: d.displayName,
                                                 playerId: d.id,
                                                 swid: d.swid || String(d.id)
                                             });
+                                            $("#D_F_AddFriendError").empty().hide();
                                         } else {
                                             console.log("[Friends] Player not found:", name);
                                             Disney.Friends.API.foundPlayer({
