@@ -89,6 +89,26 @@
         window.navigateTo      = function(url) { window.location.href = url; };
         window.renderCreate    = function()    { window.location.href = '/en/penguin/create/game'; };
         window.renderLogin     = function()    { /* already on game page */ };
+
+        // Intercept Ruffle's internal fetch() so that when the main SWF loads
+        // create_module.swf via ActionScript Loader, we catch it and redirect
+        // the browser to the Dash registration page instead.
+        // Ruffle uses window.fetch() to download SWF files, so overriding it
+        // here (before Ruffle loads) lets us intercept any sub-SWF request.
+        (function() {
+            var _origFetch = window.fetch;
+            window.fetch = function(input, init) {
+                var url = (typeof input === 'string') ? input
+                        : (input && input.url) ? input.url
+                        : String(input);
+                if (url.indexOf('create_module.swf') !== -1) {
+                    window.location.href = '/en/penguin/create/game';
+                    // Return a promise that never resolves — page is navigating away.
+                    return new Promise(function() {});
+                }
+                return _origFetch.apply(this, arguments);
+            };
+        })();
     </script>
 
     <!-- 2. jQuery + UI + libs required by the Disney Friends library -->
