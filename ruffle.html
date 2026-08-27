@@ -1,10 +1,11 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Penguin - Ruffle</title>
     <style>
+        * { box-sizing: border-box; }
         body, html {
             margin: 0;
             padding: 0;
@@ -15,6 +16,11 @@
             display: flex;
             align-items: center;
             justify-content: center;
+        }
+        #D_F_GameSection {
+            position: relative;
+            width: 960px;
+            height: 640px;
         }
         #ruffle-container {
             width: 960px;
@@ -28,9 +34,16 @@
             width: 100%;
             height: 100%;
         }
+        #D_F_FriendSection {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            top: 80px;
+            right: 20px;
+        }
     </style>
 
-    <!-- 1. CONFIGURATION MUST BE DEFINED BEFORE THE LIBRARY -->
+    <!-- 1. Ruffle config MUST be defined before the library -->
     <script>
         window.RufflePlayer = window.RufflePlayer || {};
         window.RufflePlayer.config = {
@@ -50,7 +63,15 @@
         };
     </script>
 
-    <!-- 2. RUFFLE LIBRARY -->
+    <!-- 2. jQuery + UI + libs required by the Disney Friends library -->
+    <script src="http://127.0.0.1:8888/media/play/js/lib/jquery.min.js"></script>
+    <script src="http://127.0.0.1:8888/media/play/js/lib/jquery.ui.min.js"></script>
+    <script src="http://127.0.0.1:8888/media/play/js/lib/libs.min.js"></script>
+
+    <!-- 3. Disney Friends init (loads disney-friends-with-ui-min.js dynamically) -->
+    <script src="http://127.0.0.1:8888/media/play/js/disney-friends-ostrta-min.js"></script>
+
+    <!-- 4. Ruffle player library -->
     <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
 
     <script>
@@ -60,7 +81,12 @@
             const container = document.getElementById("ruffle-container");
             container.appendChild(player);
 
+            // Class required by Disney.Social.getLandDOMElement()
+            player.id = "club_penguin";
+            player.classList.add("disney_land_clubpenguin_player");
+
             const base = "http://127.0.0.1:8888/media/play/";
+            const SWID = "{00000000-0000-0000-0000-000000000001}";
 
             player.load({
                 url: base + "v2/client/club_penguin.swf?clientVersion=21639",
@@ -90,21 +116,57 @@
                     "configVersion": "1485906035",
                     "contentVersion": "84421",
                     "minigameVersion": "13162",
-                    // Disney Friends auth parameters.
-                    // A dummy SWID (GUID format) and non-empty 'a' token are needed
-                    // to keep the Show Friends button in an enabled/active state.
-                    "swid": "{00000000-0000-0000-0000-000000000001}",
-                    "a": "dummy_token",
+                    "swid": SWID,
+                    "a": "local_token",
                     "nau": "penguin",
                     "nal": "penguin",
                     "nas": "0",
                     "nad": "0"
                 }
             });
+
+            // Connect the Disney Friends system after the SWF is loaded.
+            // Poll until Disney.Friends is initialized by disney-friends-with-ui-min.js.
+            function tryConnectFriends(attempts) {
+                if (typeof Disney !== "undefined" &&
+                    Disney.Friends &&
+                    Disney.Friends.API &&
+                    Disney.Friends.Connection) {
+                    try {
+                        Disney.Friends.API.connect(SWID, "local_token");
+                        console.log("[Friends] Connected as SWID:", SWID);
+                    } catch(e) {
+                        console.warn("[Friends] connect() failed:", e);
+                    }
+                } else if (attempts > 0) {
+                    setTimeout(() => tryConnectFriends(attempts - 1), 500);
+                } else {
+                    console.warn("[Friends] Disney.Friends not available after polling.");
+                }
+            }
+            setTimeout(() => tryConnectFriends(20), 1000);
         });
+
+        // ExternalInterface stubs called by the CP SWF via Ruffle.
+        // The SWF calls these to open/close the friends panel.
+        window.handleShowFriends = function() {
+            try { if (Disney && Disney.Friends) Disney.Friends.API.toggle(null); } catch(e) {}
+        };
+        window.handleHideFriends = function() {
+            try { if (Disney && Disney.Friends) Disney.Friends.API.toggle(0); } catch(e) {}
+        };
+        window.handleFriendsEnabled = function() { return true; };
+        window.handleShowPreactivation = function() {};
     </script>
 </head>
 <body>
-    <div id="ruffle-container"></div>
+    <!--
+        #D_F_GameSection is required by disney-friends-with-ui-min.js.
+        Disney.ClubPenguin.getNotifyPosition() reads the size/offset of this element
+        to position the HUD notification bubble near the in-game friends icon.
+    -->
+    <div id="D_F_GameSection">
+        <div id="ruffle-container"></div>
+    </div>
 </body>
 </html>

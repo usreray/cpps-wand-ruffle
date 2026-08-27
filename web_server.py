@@ -147,6 +147,8 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             mime_type = 'text/xml'
         elif target.endswith('.json'):
             mime_type = 'application/json'
+        elif target.endswith('.jsonp'):
+            mime_type = 'application/javascript'
 
         self.send_response(200)
         self.send_header('Content-Type', mime_type or 'application/octet-stream')
