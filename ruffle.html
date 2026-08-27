@@ -117,8 +117,18 @@
 
     <!-- 1. Ruffle config MUST be defined before the library -->
     <script>
+        const isHttps = window.location.protocol === "https:";
+        const wsProto = isHttps ? "wss:" : "ws:";
         const currentHost = window.location.hostname || "127.0.0.1";
-        const wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+
+        let loginProxyUrl, worldProxyUrl;
+        if (window.location.port === "8888") {
+            loginProxyUrl = "ws://" + currentHost + ":8080";
+            worldProxyUrl = "ws://" + currentHost + ":8081";
+        } else {
+            loginProxyUrl = wsProto + "//" + window.location.host + "/ws/login";
+            worldProxyUrl = wsProto + "//" + window.location.host + "/ws/world";
+        }
 
         window.RufflePlayer = window.RufflePlayer || {};
         window.RufflePlayer.config = {
@@ -128,12 +138,14 @@
             "allowScriptAccess": true,
             "logLevel": "warn",
             "socketProxy": [
-                { "host": "127.0.0.1", "port": 6112, "proxyUrl": wsProto + "//" + currentHost + ":8080" },
-                { "host": "localhost", "port": 6112, "proxyUrl": wsProto + "//" + currentHost + ":8080" },
-                { "host": currentHost, "port": 6112, "proxyUrl": wsProto + "//" + currentHost + ":8080" },
-                { "host": "127.0.0.1", "port": 9875, "proxyUrl": wsProto + "//" + currentHost + ":8081" },
-                { "host": "localhost", "port": 9875, "proxyUrl": wsProto + "//" + currentHost + ":8081" },
-                { "host": currentHost, "port": 9875, "proxyUrl": wsProto + "//" + currentHost + ":8081" }
+                { "host": "127.0.0.1", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "localhost", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": currentHost, "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "203.0.113.10", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "127.0.0.1", "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": "localhost", "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": currentHost, "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": "203.0.113.10", "port": 9875, "proxyUrl": worldProxyUrl }
             ]
         };
 
