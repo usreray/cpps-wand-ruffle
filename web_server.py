@@ -48,8 +48,13 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(length) if length > 0 else None
 
+        # Stub Disney Friends /datatech API (Dash has no /datatech route)
+        if raw_path.startswith("/datatech/"):
+            self.send_json(b'{"status":200,"payload":{},"data":{}}')
+            return
+
         # Forward POST requests coming to Dash services
-        if any(raw_path.startswith(p) for p in ["/datatech", "/create", "/activate", "/autocomplete"]):
+        if any(raw_path.startswith(p) for p in ["/create", "/activate", "/autocomplete"]):
             if self.proxy_to_dash(self.path, body, method="POST"):
                 return
 
@@ -57,6 +62,82 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
         self.wfile.write(b'{"status":"ok"}')
+
+    def _handle_datatech_get(self, raw_path, qs):
+        """Stub responses for the Disney Friends /datatech API used by the CP SWF.
+
+        The Show Friends button (and the friends list overlay) calls several endpoints:
+          - /datatech/cp/getPublicPlayerDataByDisplayName  -> look up a player by name
+          - /datatech/cp/GetPublicProfileData              -> get a player's profile
+          - /datatech/cp/GetPlayerFriendsList              -> friends list
+          - /datatech/cp/GetFriendshipStatus               -> friendship status
+          All other /datatech calls receive a generic empty-success response.
+        """
+        import json
+
+        path_lower = raw_path.lower()
+
+        # Look up player by display name (used by "Find a Friend" search)
+        if 'getpublicplayerdatabydisplayname' in path_lower:
+            display_name = (qs.get('displayName') or qs.get('displayname') or [''])[0]
+            payload = {
+                "status": 200,
+                "payload": {
+                    "data": {
+                        "displayName": display_name,
+                        "swid": "",
+                        "id": 0,
+                        "age": 0,
+                        "country": "US"
+                    }
+                }
+            }
+            self.send_json(json.dumps(payload).encode())
+            return
+
+        # Get a player's public profile
+        if 'getpublicprofiledata' in path_lower or 'getprofiledata' in path_lower:
+            payload = {
+                "status": 200,
+                "payload": {
+                    "data": {
+                        "displayName": "",
+                        "swid": "",
+                        "membershipType": 1
+                    }
+                }
+            }
+            self.send_json(json.dumps(payload).encode())
+            return
+
+        # Friends list
+        if 'getplayerfriendslist' in path_lower or 'friendslist' in path_lower:
+            payload = {
+                "status": 200,
+                "payload": {
+                    "data": {
+                        "friends": []
+                    }
+                }
+            }
+            self.send_json(json.dumps(payload).encode())
+            return
+
+        # Friendship status check
+        if 'getfriendshipstatus' in path_lower or 'friendshipstatus' in path_lower:
+            payload = {
+                "status": 200,
+                "payload": {
+                    "data": {
+                        "status": "NOT_FRIEND"
+                    }
+                }
+            }
+            self.send_json(json.dumps(payload).encode())
+            return
+
+        # Generic fallback for any other /datatech endpoint
+        self.send_json(b'{"status":200,"payload":{"data":{}}}')
 
     def send_file(self, target):
         mime_type, _ = mimetypes.guess_type(target)
@@ -74,9 +155,17 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         with open(target, 'rb') as f:
             self.wfile.write(f.read())
 
+    def send_json(self, data: bytes):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         raw_path = parsed.path
+        qs = urllib.parse.parse_qs(parsed.query)
 
         if raw_path == "/play/ruffle.html":
             target = "/opt/cpps/wand/ruffle.html"
@@ -88,6 +177,12 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         if raw_path.startswith("/avatar") or raw_path.startswith("/social") or "autocomplete" in raw_path:
             if self.proxy_to_dash(self.path, method="GET"):
                 return
+
+        # 2. Disney Friends / datatech API stubs
+        # The CP SWF calls these to power the Show Friends button and friends list overlay.
+        if raw_path.startswith("/datatech/"):
+            self._handle_datatech_get(raw_path, qs)
+            return
 
         if "services" in raw_path:
             services_xml = b'''<?xml version="1.0" encoding="UTF-8"?>
