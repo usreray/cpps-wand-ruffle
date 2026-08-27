@@ -73,6 +73,15 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                             if parsed_loc.query:
                                 redirect_url += '?' + parsed_loc.query
 
+                if body:
+                    try:
+                        form_data = urllib.parse.parse_qs(body.decode('utf-8', errors='ignore'))
+                        if 'name' in form_data and form_data['name']:
+                            user_param = f"created=1&user={urllib.parse.quote(form_data['name'][0])}"
+                            redirect_url += ('&' if '?' in redirect_url else '?') + user_param
+                    except Exception:
+                        pass
+
                 ajax_json = (
                     f'[{{"command":"redirect","url":"{redirect_url}"}},'
                     f'{{"command":"invoke","selector":"body","method":"javascript_goto","arguments":["{redirect_url}"]}}]'
@@ -100,8 +109,55 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                         val = parsed_loc.path
                         if parsed_loc.query:
                             val += '?' + parsed_loc.query
+
+                    if body:
+                        try:
+                            form_data = urllib.parse.parse_qs(body.decode('utf-8', errors='ignore'))
+                            if 'name' in form_data and form_data['name']:
+                                user_param = f"created=1&user={urllib.parse.quote(form_data['name'][0])}"
+                                val += ('&' if '?' in val else '?') + user_param
+                        except Exception:
+                            pass
                     print(f"[proxy_to_dash] Redirecting client to: {val}")
 
+            # Inject helper script into create page HTML so the submit button never gets stuck
+            if method == "GET" and ("create" in path or "penguin" in path) and b'</body>' in data and b'edit-submit' in data:
+                fix_script = b'''<script>
+(function() {
+    function checkFormReady() {
+        if (typeof jQuery === 'undefined') return;
+        var name = (jQuery('#edit-name').val() || '').trim();
+        var pass = (jQuery('#edit-pass').val() || '').trim();
+        var email = (jQuery('#edit-email').val() || '').trim();
+        var terms = jQuery('#edit-terms').is(':checked');
+        var captcha = jQuery('#edit-captcha input:checked').length > 0;
+        
+        if (name.length >= 3 && pass.length >= 6 && email.length >= 5 && terms && captcha) {
+            jQuery('#edit-submit').removeClass('disabled').removeAttr('disabled');
+            jQuery('#submit-wrapper .preventer').hide();
+        }
+    }
+
+    jQuery(document).ready(function($) {
+        $(document).on('input keyup change click', '#edit-name, #edit-pass, #edit-email, #edit-terms, #edit-captcha input', function() {
+            setTimeout(checkFormReady, 100);
+        });
+        $(document).on('click', '#submit-wrapper', function(e) {
+            $('#edit-name, #edit-pass, #edit-email').trigger('blur');
+            setTimeout(function() {
+                checkFormReady();
+                var btn = $('#edit-submit');
+                if (!btn.hasClass('disabled') && !(typeof Drupal !== 'undefined' && Drupal.penguin && Drupal.penguin.ajaxInProgress)) {
+                    $('#penguin-create-form').submit();
+                }
+            }, 300);
+        });
+    });
+})();
+</script></body>'''
+                data = data.replace(b'</body>', fix_script)
+
+            for header, val in resp.getheaders():
                 if header.lower() not in ['transfer-encoding', 'content-length']:
                     self.send_header(header, val)
             self.send_header('Content-Length', str(len(data)))
@@ -160,8 +216,54 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'{"status":"ok"}')
 
+    def _lookup_penguin_db(self, name):
+        """Look up penguin ID and username/nickname from the PostgreSQL database."""
+        if not name:
+            return None
+
+        # Method 1: psycopg2 if installed
+        try:
+            import psycopg2
+            conn = psycopg2.connect(host="127.0.0.1", port=5432, user="postgres", password="postgres", dbname="postgres")
+            cur = conn.cursor()
+            cur.execute("SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER(%s) OR LOWER(nickname)=LOWER(%s) LIMIT 1", (name, name))
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                return {"id": row[0], "username": row[1], "nickname": row[2]}
+        except Exception:
+            pass
+
+        # Method 2: docker exec wand-db-1 psql
+        try:
+            import subprocess
+            clean_name = ''.join(c for c in name if c.isalnum() or c in ' _-')
+            cmd = ["docker", "exec", "wand-db-1", "psql", "-U", "postgres", "-t", "-A", "-c",
+                   f"SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER('{clean_name}') OR LOWER(nickname)=LOWER('{clean_name}') LIMIT 1;"]
+            out = subprocess.check_output(cmd, timeout=3).decode('utf-8').strip()
+            if out:
+                parts = out.split('|')
+                return {"id": int(parts[0]), "username": parts[1], "nickname": parts[2]}
+        except Exception as e:
+            print(f"[_lookup_penguin_db] docker exec error: {e}")
+
+        # Method 3: sudo docker exec wand-db-1 psql
+        try:
+            import subprocess
+            clean_name = ''.join(c for c in name if c.isalnum() or c in ' _-')
+            cmd = ["sudo", "docker", "exec", "wand-db-1", "psql", "-U", "postgres", "-t", "-A", "-c",
+                   f"SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER('{clean_name}') OR LOWER(nickname)=LOWER('{clean_name}') LIMIT 1;"]
+            out = subprocess.check_output(cmd, timeout=3).decode('utf-8').strip()
+            if out:
+                parts = out.split('|')
+                return {"id": int(parts[0]), "username": parts[1], "nickname": parts[2]}
+        except Exception as e:
+            print(f"[_lookup_penguin_db] sudo docker exec error: {e}")
+
+        return None
+
     def _handle_datatech_get(self, raw_path, qs):
-        """Stub responses for the Disney Friends /datatech API used by the CP SWF.
+        """Responses for the Disney Friends /datatech API used by the CP SWF & Friends UI.
 
         The Show Friends button (and the friends list overlay) calls several endpoints:
           - /datatech/cp/getPublicPlayerDataByDisplayName  -> look up a player by name
@@ -174,21 +276,38 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         path_lower = raw_path.lower()
 
-        # Look up player by display name (used by "Find a Friend" search)
+        # Look up player by display name (used by "Find a Friend" search in Disney Friends panel)
         if 'getpublicplayerdatabydisplayname' in path_lower:
             display_name = (qs.get('displayName') or qs.get('displayname') or [''])[0]
-            payload = {
-                "status": 200,
-                "payload": {
-                    "data": {
-                        "displayName": display_name,
-                        "swid": "",
-                        "id": 0,
-                        "age": 0,
-                        "country": "US"
+            player = self._lookup_penguin_db(display_name)
+            if player:
+                print(f"[datatech] Found player for '{display_name}': id={player['id']}, name={player['nickname']}")
+                payload = {
+                    "status": 200,
+                    "payload": {
+                        "data": {
+                            "displayName": player["nickname"] or player["username"],
+                            "swid": str(player["id"]),
+                            "id": player["id"],
+                            "age": 0,
+                            "country": "US"
+                        }
                     }
                 }
-            }
+            else:
+                print(f"[datatech] Player not found for '{display_name}'")
+                payload = {
+                    "status": 404,
+                    "payload": {
+                        "data": {
+                            "displayName": display_name,
+                            "swid": "",
+                            "id": 0,
+                            "age": 0,
+                            "country": "US"
+                        }
+                    }
+                }
             self.send_json(json.dumps(payload).encode())
             return
 
@@ -242,7 +361,7 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             mime_type = 'application/x-shockwave-flash'
         elif target.endswith('.xml'):
             mime_type = 'text/xml'
-        elif target.endswith('.json'):
+        elif target.endswith('.json') or os.path.basename(target) == 'services':
             mime_type = 'application/json'
         elif target.endswith('.jsonp'):
             mime_type = 'application/javascript'
@@ -303,26 +422,16 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         if (raw_path.startswith("/avatar") or raw_path.startswith("/social") or 
             raw_path.startswith("/create") or raw_path.startswith("/activate") or
             raw_path.startswith("/penguin") or "autocomplete" in raw_path):
-            if self.proxy_to_dash(self.path, method="GET"):
+            dash_path = self.path
+            if raw_path.startswith("/avatar/"):
+                dash_path = re.sub(r'^/avatar/(\d+)/[a-zA-Z]+', r'/avatar/\1', self.path)
+            if self.proxy_to_dash(dash_path, method="GET"):
                 return
 
         # 2. Disney Friends / datatech API stubs
         # The CP SWF calls these to power the Show Friends button and friends list overlay.
         if raw_path.startswith("/datatech/"):
             self._handle_datatech_get(raw_path, qs)
-            return
-
-        if "services" in raw_path:
-            services_xml = b'''<?xml version="1.0" encoding="UTF-8"?>
-            <services>
-                <service name="like" status="enabled"/>
-                <service name="igloo" status="enabled"/>
-            </services>'''
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/xml')
-            self.send_header('Content-Length', str(len(services_xml)))
-            self.end_headers()
-            self.wfile.write(services_xml)
             return
 
         # 2. Direct file path matching

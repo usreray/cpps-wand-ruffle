@@ -41,6 +41,78 @@
             top: 80px;
             right: 20px;
         }
+        /* Hide background error text when Add Friend result card is shown */
+        #D_F_AddFriendResults:not(:empty) {
+            position: relative;
+            z-index: 10;
+        }
+        #D_F_AddFriendResults:not(:empty) ~ #D_F_AddFriendError,
+        #D_F_AddFriendResults:not(:empty) + #D_F_AddFriendError {
+            display: none !important;
+        }
+
+        /* Registration Success Banner */
+        #registration-success-banner {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10000;
+            animation: slideDown 0.4s ease-out;
+        }
+        .banner-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: linear-gradient(180deg, #0099ff 0%, #0066cc 100%);
+            border: 3px solid #ffcc00;
+            border-radius: 12px;
+            padding: 12px 20px;
+            color: #ffffff;
+            font-family: 'Arial Rounded MT Bold', 'Helvetica Neue', Arial, sans-serif;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            min-width: 380px;
+            max-width: 540px;
+        }
+        .banner-icon {
+            font-size: 26px;
+        }
+        .banner-title {
+            font-size: 15px;
+            font-weight: bold;
+            color: #ffea00;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+            margin-bottom: 2px;
+        }
+        .banner-text {
+            font-size: 13px;
+            color: #e6f3ff;
+            line-height: 1.3;
+        }
+        .banner-close {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            color: #ffffff;
+            font-size: 13px;
+            font-weight: bold;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            transition: background 0.2s;
+        }
+        .banner-close:hover {
+            background: rgba(255, 0, 0, 0.6);
+        }
+        @keyframes slideDown {
+            from { transform: translate(-50%, -40px); opacity: 0; }
+            to { transform: translate(-50%, 0); opacity: 1; }
+        }
     </style>
 
     <!-- 1. Ruffle config MUST be defined before the library -->
@@ -124,6 +196,20 @@
 
     <script>
         window.addEventListener("DOMContentLoaded", () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('created') === '1') {
+                const user = urlParams.get('user') || urlParams.get('u') || 'Penguin';
+                const banner = document.getElementById('registration-success-banner');
+                const userSpan = document.getElementById('created-username');
+                if (banner && userSpan) {
+                    userSpan.textContent = user;
+                    banner.style.display = 'block';
+                    setTimeout(() => {
+                        if (banner) banner.style.display = 'none';
+                    }, 10000);
+                }
+            }
+
             const ruffle = window.RufflePlayer.newest();
             const player = ruffle.createPlayer();
             const container = document.getElementById("ruffle-container");
@@ -183,6 +269,44 @@
                     try {
                         Disney.Friends.API.connect(SWID, "local_token");
                         console.log("[Friends] Connected as SWID:", SWID);
+
+                        // Listen for player search queries from the Disney Friends "Add Friend" box
+                        if (Disney.Friends.Event && Disney.Friends.Event.FIND_PLAYER) {
+                            Disney.Friends.Event.addListener(Disney.Friends.Event.FIND_PLAYER, function(name) {
+                                console.log("[Friends] Searching player:", name);
+                                $.ajax({
+                                    url: "/datatech/cp/getPublicPlayerDataByDisplayName?displayName=" + encodeURIComponent(name),
+                                    dataType: "json",
+                                    success: function(resp) {
+                                        if (resp && resp.payload && resp.payload.data && resp.payload.data.id > 0) {
+                                            var d = resp.payload.data;
+                                            console.log("[Friends] Found player:", d);
+                                            $("#D_F_AddFriendError").empty().hide();
+                                            Disney.Friends.API.foundPlayer({
+                                                name: d.displayName,
+                                                playerId: d.id,
+                                                swid: d.swid || String(d.id)
+                                            });
+                                            $("#D_F_AddFriendError").empty().hide();
+                                        } else {
+                                            console.log("[Friends] Player not found:", name);
+                                            Disney.Friends.API.foundPlayer({
+                                                name: name,
+                                                playerId: 0,
+                                                swid: ""
+                                            });
+                                        }
+                                    },
+                                    error: function() {
+                                        Disney.Friends.API.foundPlayer({
+                                            name: name,
+                                            playerId: 0,
+                                            swid: ""
+                                        });
+                                    }
+                                });
+                            });
+                        }
                     } catch(e) {
                         console.warn("[Friends] connect() failed:", e);
                     }
@@ -208,6 +332,17 @@
     </script>
 </head>
 <body>
+    <div id="registration-success-banner">
+        <div class="banner-card">
+            <div class="banner-icon">🎉</div>
+            <div class="banner-content">
+                <div class="banner-title">Penguin Created Successfully!</div>
+                <div class="banner-text">Welcome, <strong id="created-username">Penguin</strong>! Enter your password on the login screen to start playing.</div>
+            </div>
+            <button class="banner-close" onclick="document.getElementById('registration-success-banner').style.display='none'">✕</button>
+        </div>
+    </div>
+
     <!--
         #D_F_GameSection is required by disney-friends-with-ui-min.js.
         Disney.ClubPenguin.getNotifyPosition() reads the size/offset of this element
