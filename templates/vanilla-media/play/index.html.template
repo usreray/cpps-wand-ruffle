@@ -52,46 +52,46 @@
     <a id="affiliate-header-link" href="http://www.clubpenguin.com/?home=return"><img src="/sites/play.clubpenguin.com/themes/snowball/img/affiliate-cp-logo.png"></a>
 </div>
 <nav>
-    <a id="home-link" href="http://www.clubpenguin.com/?home=return">Home</a>
+    <a id="home-link" href="/play/">Home</a>
     <ul class="mainnav" itemscope="itemscope" itemtype="http://www.schema.org/SiteNavigationElement">
-        <li itemprop="name"><a itemprop="url" href="https://secured.clubpenguin.com/membership" class="cpmenu">Membership</a></li>
-        <li itemprop="name"><a itemprop="url" href="http://www.clubpenguin.com/whats-new" class="cpmenu">What's New</a></li>
-        <li itemprop="name"><a itemprop="url" href="http://www.clubpenguin.com/safety" class="cpmenu">Safety</a></li>
-        <li itemprop="name"><a itemprop="url" href="http://www.clubpenguin.com/parents" class="cpmenu">Parents</a></li>
-        <li itemprop="name"><a itemprop="url" href="http://www.clubpenguin.com/fun-stuff" class="cpmenu">Fun Stuff</a></li>
-        <li itemprop="name"><a itemprop="url" href="https://www.clubpenguinisland.com/" class="cpmenu">Apps</a></li>
-        <li itemprop="name"><a itemprop="url" href="http://help.disney.com/clubpenguin" class="cpmenu">Help</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Membership</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">What's New</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Safety</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Parents</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Fun Stuff</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Apps</a></li>
+        <li itemprop="name"><a itemprop="url" href="/play/" class="cpmenu">Help</a></li>
     </ul>
     <div id="language-select">
         <div>
             <a id="language-select-link" class="top-level" href="#" tabindex="1">Language Select<span class="indicator"></span></a>
             <div id="bottom-languages">
-                <a class="first" href="/">ENGLISH</a>
-                <a href="/es/">ESPA&Ntilde;OL</a>
-                <a href="/fr/">FRAN&Ccedil;AIS</a>
-                <a class="last" href="/pt/">PORTUGU&Ecirc;S</a>
+                <a class="first" href="/play/">ENGLISH</a>
+                <a href="/play/es/">ESPA&Ntilde;OL</a>
+                <a href="/play/fr/">FRAN&Ccedil;AIS</a>
+                <a class="last" href="/play/pt/">PORTUGU&Ecirc;S</a>
             </div>
         </div>
     </div>
     <ul class="navbar navbar-right">
-        <li><a id="logout-link" class="logout" href="/penguin/logout"><img src="/sites/play.clubpenguin.com/themes/snowball/img/icon-logout.png"> Log off</a></li>
+        <li><a id="logout-link" class="logout" href="/play/"><img src="/sites/play.clubpenguin.com/themes/snowball/img/icon-logout.png"> Log off</a></li>
     </ul>
 </nav>
 <div id="banner"></div></header>    
     <main id="content">
         <section id="billboards">
             <div id="membership-buttons">
-                <a class="membership-button" href="https://secured.clubpenguin.com/membership">About Membership</a>
+                <a class="membership-button" href="/play/">About Membership</a>
             </div>
             <img src="/assets/December-CPI-Announcement-Billboard.jpg">
         </section>
         <section id="actions">
             <img class="cp-logo" src="/assets/sites/default/themes/snowball/img/club-penguin-logo.png" />
             <div id="create">
-                <a id="penguin-create" class="action-button cp-button-blue" href="/penguin/create">Create a Penguin</a>
+                <a id="penguin-create" class="action-button cp-button-blue" href="/en/penguin/create">Create a Penguin</a>
             </div>
             <div id="login">
-                <a id="penguin-login" class="action-button cp-button-blue cp-mobile-pop" href="/#/login">Login</a>
+                <a id="penguin-login" class="action-button cp-button-blue cp-mobile-pop" href="/play/ruffle.html">Login</a>
             </div>
         </section>
     </main>

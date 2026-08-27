@@ -380,10 +380,27 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def list_directory(self, path):
+        self.send_error(404, "File not found")
+        return None
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         raw_path = parsed.path
         qs = urllib.parse.parse_qs(parsed.query)
+
+        # Redirect root to /play/
+        if raw_path in ("/", "/index.html"):
+            self.send_response(302)
+            self.send_header('Location', '/play/')
+            self.end_headers()
+            return
+
+        if raw_path in ("/play", "/play/"):
+            target = "/opt/cpps/wand/vanilla-media/play/index.html"
+            if os.path.isfile(target):
+                self.send_file(target)
+                return
 
         if raw_path == "/play/ruffle.html":
             target = "/opt/cpps/wand/ruffle.html"
