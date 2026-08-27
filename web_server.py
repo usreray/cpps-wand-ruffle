@@ -5,9 +5,12 @@ import urllib.parse
 import urllib.request
 import mimetypes
 
+import http.client
+
 PORT = 8888
 DIRECTORY = "/opt/cpps/wand/vanilla-media"
-DASH_URL = "http://127.0.0.1:3000"
+DASH_HOST = "127.0.0.1"
+DASH_PORT = 3000
 
 class CPPSHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -24,40 +27,48 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
 
     def proxy_to_dash(self, path, body=None, method="GET"):
+        conn = None
         try:
-            target_url = f"{DASH_URL}{path}"
-            req = urllib.request.Request(target_url, data=body, method=method)
+            conn = http.client.HTTPConnection(DASH_HOST, DASH_PORT, timeout=10)
+            headers = {}
 
             # Forward relevant request headers
             content_type = self.headers.get('Content-Type')
             if content_type:
-                req.add_header('Content-Type', content_type)
+                headers['Content-Type'] = content_type
             elif body is not None:
-                req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+                headers['Content-Type'] = 'application/x-www-form-urlencoded'
 
             cookie = self.headers.get('Cookie')
             if cookie:
-                req.add_header('Cookie', cookie)
+                headers['Cookie'] = cookie
 
-            for h in ['X-Drupal-Ajax-Token', 'X-Requested-With', 'Accept', 'User-Agent']:
+            for h in ['X-Drupal-Ajax-Token', 'X-Requested-With', 'Accept', 'User-Agent', 'Referer']:
                 v = self.headers.get(h)
                 if v:
-                    req.add_header(h, v)
+                    headers[h] = v
 
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                data = resp.read()
-                self.send_response(resp.status)
-                raw_headers = resp.headers.raw_items() if hasattr(resp.headers, 'raw_items') else resp.headers.items()
-                for header, val in raw_headers:
-                    if header.lower() not in ['transfer-encoding', 'content-length']:
-                        self.send_header(header, val)
-                self.send_header('Content-Length', str(len(data)))
-                self.end_headers()
-                self.wfile.write(data)
-                return True
+            conn.request(method, path, body=body, headers=headers)
+            resp = conn.getresponse()
+            data = resp.read()
+
+            self.send_response(resp.status)
+            for header, val in resp.getheaders():
+                if header.lower() not in ['transfer-encoding', 'content-length']:
+                    self.send_header(header, val)
+            self.send_header('Content-Length', str(len(data)))
+            self.end_headers()
+            self.wfile.write(data)
+            return True
         except Exception as e:
             print(f"[proxy_to_dash] error proxying {method} {path}: {e}")
             return False
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
