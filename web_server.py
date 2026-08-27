@@ -220,11 +220,13 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             '/penguin/activate':         '/activate/vanilla/en',
         }
         if raw_path in PENGUIN_REDIRECTS:
-            dash_path = PENGUIN_REDIRECTS[raw_path]
+            dest = 'http://127.0.0.1:3000' + PENGUIN_REDIRECTS[raw_path]
             if parsed.query:
-                dash_path += '?' + parsed.query
-            if self.proxy_to_dash(dash_path, method='GET'):
-                return
+                dest += '?' + parsed.query
+            self.send_response(302)
+            self.send_header('Location', dest)
+            self.end_headers()
+            return
 
         # 1. Dash (Port 3000) Avatar and Web Service Redirects
         if raw_path.startswith("/avatar") or raw_path.startswith("/social") or "autocomplete" in raw_path:
