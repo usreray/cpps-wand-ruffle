@@ -54,6 +54,16 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
             self.send_response(resp.status)
             for header, val in resp.getheaders():
+                if header.lower() == 'location':
+                    parsed_loc = urllib.parse.urlparse(val)
+                    if 'play' in parsed_loc.netloc or 'play' in parsed_loc.path or 'ruffle' in parsed_loc.path:
+                        val = '/play/ruffle.html'
+                    elif parsed_loc.path:
+                        val = parsed_loc.path
+                        if parsed_loc.query:
+                            val += '?' + parsed_loc.query
+                    print(f"[proxy_to_dash] Redirecting client to: {val}")
+
                 if header.lower() not in ['transfer-encoding', 'content-length']:
                     self.send_header(header, val)
             self.send_header('Content-Length', str(len(data)))
