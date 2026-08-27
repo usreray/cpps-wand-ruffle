@@ -396,10 +396,22 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             return
 
-        if raw_path in ("/play", "/play/"):
+        if raw_path in ("/play", "/play/", "/play/index.html"):
             target = "/opt/cpps/wand/vanilla-media/play/index.html"
+            if not os.path.isfile(target):
+                target = "/opt/cpps/wand/templates/vanilla-media/play/index.html.template"
             if os.path.isfile(target):
-                self.send_file(target)
+                with open(target, 'rb') as f:
+                    content = f.read()
+                # Ensure Login button links directly to /play/ruffle.html and other links to /play/
+                content = content.replace(b'href="/#/login"', b'href="/play/ruffle.html"')
+                content = content.replace(b'href="http://www.clubpenguin.com/?home=return"', b'href="/play/"')
+                content = content.replace(b'href="https://secured.clubpenguin.com/membership"', b'href="/play/"')
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
                 return
 
         if raw_path == "/play/ruffle.html":
