@@ -120,6 +120,44 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                             pass
                     print(f"[proxy_to_dash] Redirecting client to: {val}")
 
+            # Inject helper script into create page HTML so the submit button never gets stuck
+            if method == "GET" and ("create" in path or "penguin" in path) and b'</body>' in data and b'edit-submit' in data:
+                fix_script = b'''<script>
+(function() {
+    function checkFormReady() {
+        if (typeof jQuery === 'undefined') return;
+        var name = (jQuery('#edit-name').val() || '').trim();
+        var pass = (jQuery('#edit-pass').val() || '').trim();
+        var email = (jQuery('#edit-email').val() || '').trim();
+        var terms = jQuery('#edit-terms').is(':checked');
+        var captcha = jQuery('#edit-captcha input:checked').length > 0;
+        
+        if (name.length >= 3 && pass.length >= 6 && email.length >= 5 && terms && captcha) {
+            jQuery('#edit-submit').removeClass('disabled').removeAttr('disabled');
+            jQuery('#submit-wrapper .preventer').hide();
+        }
+    }
+
+    jQuery(document).ready(function($) {
+        $(document).on('input keyup change click', '#edit-name, #edit-pass, #edit-email, #edit-terms, #edit-captcha input', function() {
+            setTimeout(checkFormReady, 100);
+        });
+        $(document).on('click', '#submit-wrapper', function(e) {
+            $('#edit-name, #edit-pass, #edit-email').trigger('blur');
+            setTimeout(function() {
+                checkFormReady();
+                var btn = $('#edit-submit');
+                if (!btn.hasClass('disabled') && !(typeof Drupal !== 'undefined' && Drupal.penguin && Drupal.penguin.ajaxInProgress)) {
+                    $('#penguin-create-form').submit();
+                }
+            }, 300);
+        });
+    });
+})();
+</script></body>'''
+                data = data.replace(b'</body>', fix_script)
+
+            for header, val in resp.getheaders():
                 if header.lower() not in ['transfer-encoding', 'content-length']:
                     self.send_header(header, val)
             self.send_header('Content-Length', str(len(data)))
