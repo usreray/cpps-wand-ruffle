@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Club Penguin - Ruffle</title>
+    <title>Club Penguin</title>
     <style>
         * { box-sizing: border-box; }
         body, html {
@@ -117,6 +117,19 @@
 
     <!-- 1. Ruffle config MUST be defined before the library -->
     <script>
+        const isHttps = window.location.protocol === "https:";
+        const wsProto = isHttps ? "wss:" : "ws:";
+        const currentHost = window.location.hostname || "127.0.0.1";
+
+        let loginProxyUrl, worldProxyUrl;
+        if (window.location.port === "8888") {
+            loginProxyUrl = "ws://" + currentHost + ":8080";
+            worldProxyUrl = "ws://" + currentHost + ":8081";
+        } else {
+            loginProxyUrl = wsProto + "//" + window.location.host + "/ws/login";
+            worldProxyUrl = wsProto + "//" + window.location.host + "/ws/world";
+        }
+
         window.RufflePlayer = window.RufflePlayer || {};
         window.RufflePlayer.config = {
             "autoplay": "on",
@@ -125,12 +138,14 @@
             "allowScriptAccess": true,
             "logLevel": "warn",
             "socketProxy": [
-                { "host": "127.0.0.1", "port": 6112, "proxyUrl": "ws://127.0.0.1:8080" },
-                { "host": "localhost", "port": 6112, "proxyUrl": "ws://127.0.0.1:8080" },
-                { "host": "203.0.113.10", "port": 6112, "proxyUrl": "ws://203.0.113.10:8080" },
-                { "host": "127.0.0.1", "port": 9875, "proxyUrl": "ws://127.0.0.1:8081" },
-                { "host": "localhost", "port": 9875, "proxyUrl": "ws://127.0.0.1:8081" },
-                { "host": "203.0.113.10", "port": 9875, "proxyUrl": "ws://203.0.113.10:8081" }
+                { "host": "127.0.0.1", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "localhost", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": currentHost, "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "203.0.113.10", "port": 6112, "proxyUrl": loginProxyUrl },
+                { "host": "127.0.0.1", "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": "localhost", "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": currentHost, "port": 9875, "proxyUrl": worldProxyUrl },
+                { "host": "203.0.113.10", "port": 9875, "proxyUrl": worldProxyUrl }
             ]
         };
 
@@ -184,12 +199,12 @@
     </script>
 
     <!-- 2. jQuery + UI + libs required by the Disney Friends library -->
-    <script src="http://127.0.0.1:8888/media/play/js/lib/jquery.min.js"></script>
-    <script src="http://127.0.0.1:8888/media/play/js/lib/jquery.ui.min.js"></script>
-    <script src="http://127.0.0.1:8888/media/play/js/lib/libs.min.js"></script>
+    <script src="/media/play/js/lib/jquery.min.js"></script>
+    <script src="/media/play/js/lib/jquery.ui.min.js"></script>
+    <script src="/media/play/js/lib/libs.min.js"></script>
 
     <!-- 3. Disney Friends init (loads disney-friends-with-ui-min.js dynamically) -->
-    <script src="http://127.0.0.1:8888/media/play/js/disney-friends-ostrta-min.js"></script>
+    <script src="/media/play/js/disney-friends-ostrta-min.js"></script>
 
     <!-- 4. Ruffle player library -->
     <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
@@ -219,7 +234,7 @@
             player.id = "club_penguin";
             player.classList.add("disney_land_clubpenguin_player");
 
-            const base = "http://127.0.0.1:8888/media/play/";
+            const base = window.location.protocol + "//" + window.location.host + "/media/play/";
             const SWID = "{00000000-0000-0000-0000-000000000001}";
 
             player.load({
@@ -251,11 +266,11 @@
                     "contentVersion": "84421",
                     "minigameVersion": "13162",
                     "swid": SWID,
-                    "a": "local_token",
-                    "nau": "penguin",
-                    "nal": "penguin",
-                    "nas": "0",
-                    "nad": "0"
+                    "a": "",
+                    "nau": "",
+                    "nal": "",
+                    "nas": "",
+                    "nad": ""
                 }
             });
 
