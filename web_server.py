@@ -27,17 +27,28 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         try:
             target_url = f"{DASH_URL}{path}"
             req = urllib.request.Request(target_url, data=body, method=method)
-            req.add_header('Content-Type', self.headers.get('Content-Type', 'application/json'))
 
-            # Forward cookies so session-based Dash pages (e.g. registration) work.
+            # Forward relevant request headers
+            content_type = self.headers.get('Content-Type')
+            if content_type:
+                req.add_header('Content-Type', content_type)
+            elif body is not None:
+                req.add_header('Content-Type', 'application/x-www-form-urlencoded')
+
             cookie = self.headers.get('Cookie')
             if cookie:
                 req.add_header('Cookie', cookie)
 
+            for h in ['X-Drupal-Ajax-Token', 'X-Requested-With', 'Accept', 'User-Agent']:
+                v = self.headers.get(h)
+                if v:
+                    req.add_header(h, v)
+
             with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
                 self.send_response(resp.status)
-                for header, val in resp.getheaders():
+                raw_headers = resp.headers.raw_items() if hasattr(resp.headers, 'raw_items') else resp.headers.items()
+                for header, val in raw_headers:
                     if header.lower() not in ['transfer-encoding', 'content-length']:
                         self.send_header(header, val)
                 self.send_header('Content-Length', str(len(data)))
@@ -45,6 +56,7 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(data)
                 return True
         except Exception as e:
+            print(f"[proxy_to_dash] error proxying {method} {path}: {e}")
             return False
 
     def do_POST(self):
@@ -71,15 +83,16 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             '/penguin/create':      '/create/vanilla/en',
             '/penguin/activate':    '/activate/vanilla/en',
         }
-        if raw_path in PENGUIN_POST_MAP:
-            dash_path = PENGUIN_POST_MAP[raw_path]
+        clean_path = raw_path.rstrip('/')
+        dash_target = PENGUIN_POST_MAP.get(clean_path, PENGUIN_POST_MAP.get(raw_path))
+        if dash_target:
             if parsed.query:
-                dash_path += '?' + parsed.query
-            if self.proxy_to_dash(dash_path, body, method='POST'):
+                dash_target += '?' + parsed.query
+            if self.proxy_to_dash(dash_target, body, method='POST'):
                 return
 
         # Forward POST requests coming to Dash services
-        if any(raw_path.startswith(p) for p in ["/create", "/activate", "/autocomplete"]):
+        if any(raw_path.startswith(p) for p in ["/create", "/activate", "/autocomplete", "/penguin"]):
             if self.proxy_to_dash(self.path, body, method="POST"):
                 return
 
@@ -202,7 +215,7 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         # CP SWF navigates to these URLs via navigateToURL().
         # Proxy them to the correct Dash routes so the page stays on port 8888.
-        PENGUIN_REDIRECTS = {
+        PENGUIN_ROUTES = {
             '/en/penguin/create':        '/create/vanilla/en',
             '/en/penguin/create/game':   '/create/vanilla/en',
             '/en/penguin/create/redeem': '/create/vanilla/en',
@@ -219,17 +232,18 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             '/penguin/create':           '/create/vanilla/en',
             '/penguin/activate':         '/activate/vanilla/en',
         }
-        if raw_path in PENGUIN_REDIRECTS:
-            dest = 'http://127.0.0.1:3000' + PENGUIN_REDIRECTS[raw_path]
+        clean_path = raw_path.rstrip('/')
+        dash_target = PENGUIN_ROUTES.get(clean_path, PENGUIN_ROUTES.get(raw_path))
+        if dash_target:
             if parsed.query:
-                dest += '?' + parsed.query
-            self.send_response(302)
-            self.send_header('Location', dest)
-            self.end_headers()
-            return
+                dash_target += '?' + parsed.query
+            if self.proxy_to_dash(dash_target, method="GET"):
+                return
 
-        # 1. Dash (Port 3000) Avatar and Web Service Redirects
-        if raw_path.startswith("/avatar") or raw_path.startswith("/social") or "autocomplete" in raw_path:
+        # 1. Dash (Port 3000) Avatar, Create, Activate, Penguin and Web Service Redirects
+        if (raw_path.startswith("/avatar") or raw_path.startswith("/social") or 
+            raw_path.startswith("/create") or raw_path.startswith("/activate") or
+            raw_path.startswith("/penguin") or "autocomplete" in raw_path):
             if self.proxy_to_dash(self.path, method="GET"):
                 return
 

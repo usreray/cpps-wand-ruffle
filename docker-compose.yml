@@ -204,7 +204,7 @@ services:
     env_file:
       - .env
     ports:
-      - 3000
+      - "3000:3000"
     volumes:
       - ./dash:/usr/src/dash
       - ./vanilla-media/media/avatar/paper:/usr/src/dash/items
