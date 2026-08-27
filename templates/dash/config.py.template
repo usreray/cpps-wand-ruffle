@@ -188,7 +188,7 @@ CJS_PORT : int
     Port of the Card-Jitsu Snow game server.
 """
 CJS_HOST = '{{ .Env.SNOWFLAKE_HOST }}'
-CJS_PORT = {{ .Env.SNOWFLAKE_PORT }}
+CJS_PORT = {{ if .Env.SNOWFLAKE_PORT }}{{ .Env.SNOWFLAKE_PORT }}{{ else }}7002{{ end }}
 
 
 # For more configuration settings see
