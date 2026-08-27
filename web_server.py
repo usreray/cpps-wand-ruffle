@@ -29,7 +29,12 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             req = urllib.request.Request(target_url, data=body, method=method)
             req.add_header('Content-Type', self.headers.get('Content-Type', 'application/json'))
 
-            with urllib.request.urlopen(req, timeout=3) as resp:
+            # Forward cookies so session-based Dash pages (e.g. registration) work.
+            cookie = self.headers.get('Cookie')
+            if cookie:
+                req.add_header('Cookie', cookie)
+
+            with urllib.request.urlopen(req, timeout=10) as resp:
                 data = resp.read()
                 self.send_response(resp.status)
                 for header, val in resp.getheaders():
@@ -52,6 +57,26 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         if raw_path.startswith("/datatech/"):
             self.send_json(b'{"status":200,"payload":{},"data":{}}')
             return
+
+        # Map /en|fr|es|pt/penguin/create|activate POST to Dash routes.
+        PENGUIN_POST_MAP = {
+            '/en/penguin/create':   '/create/vanilla/en',
+            '/fr/penguin/create':   '/create/vanilla/fr',
+            '/es/penguin/create':   '/create/vanilla/es',
+            '/pt/penguin/create':   '/create/vanilla/pt',
+            '/en/penguin/activate': '/activate/vanilla/en',
+            '/fr/penguin/activate': '/activate/vanilla/fr',
+            '/es/penguin/activate': '/activate/vanilla/es',
+            '/pt/penguin/activate': '/activate/vanilla/pt',
+            '/penguin/create':      '/create/vanilla/en',
+            '/penguin/activate':    '/activate/vanilla/en',
+        }
+        if raw_path in PENGUIN_POST_MAP:
+            dash_path = PENGUIN_POST_MAP[raw_path]
+            if parsed.query:
+                dash_path += '?' + parsed.query
+            if self.proxy_to_dash(dash_path, body, method='POST'):
+                return
 
         # Forward POST requests coming to Dash services
         if any(raw_path.startswith(p) for p in ["/create", "/activate", "/autocomplete"]):
@@ -173,6 +198,27 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             target = "/opt/cpps/wand/ruffle.html"
             if os.path.isfile(target):
                 self.send_file(target)
+                return
+
+        # CP SWF navigates to these URLs via navigateToURL().
+        # Proxy them to the correct Dash routes so the page stays on port 8888.
+        PENGUIN_REDIRECTS = {
+            '/en/penguin/create':   '/create/vanilla/en',
+            '/fr/penguin/create':   '/create/vanilla/fr',
+            '/es/penguin/create':   '/create/vanilla/es',
+            '/pt/penguin/create':   '/create/vanilla/pt',
+            '/en/penguin/activate': '/activate/vanilla/en',
+            '/fr/penguin/activate': '/activate/vanilla/fr',
+            '/es/penguin/activate': '/activate/vanilla/es',
+            '/pt/penguin/activate': '/activate/vanilla/pt',
+            '/penguin/create':      '/create/vanilla/en',
+            '/penguin/activate':    '/activate/vanilla/en',
+        }
+        if raw_path in PENGUIN_REDIRECTS:
+            dash_path = PENGUIN_REDIRECTS[raw_path]
+            if parsed.query:
+                dash_path += '?' + parsed.query
+            if self.proxy_to_dash(dash_path, method='GET'):
                 return
 
         # 1. Dash (Port 3000) Avatar and Web Service Redirects
