@@ -242,7 +242,7 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             mime_type = 'application/x-shockwave-flash'
         elif target.endswith('.xml'):
             mime_type = 'text/xml'
-        elif target.endswith('.json'):
+        elif target.endswith('.json') or os.path.basename(target) == 'services':
             mime_type = 'application/json'
         elif target.endswith('.jsonp'):
             mime_type = 'application/javascript'
@@ -310,19 +310,6 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         # The CP SWF calls these to power the Show Friends button and friends list overlay.
         if raw_path.startswith("/datatech/"):
             self._handle_datatech_get(raw_path, qs)
-            return
-
-        if "services" in raw_path:
-            services_xml = b'''<?xml version="1.0" encoding="UTF-8"?>
-            <services>
-                <service name="like" status="enabled"/>
-                <service name="igloo" status="enabled"/>
-            </services>'''
-            self.send_response(200)
-            self.send_header('Content-Type', 'text/xml')
-            self.send_header('Content-Length', str(len(services_xml)))
-            self.end_headers()
-            self.wfile.write(services_xml)
             return
 
         # 2. Direct file path matching
