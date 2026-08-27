@@ -73,6 +73,15 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                             if parsed_loc.query:
                                 redirect_url += '?' + parsed_loc.query
 
+                if body:
+                    try:
+                        form_data = urllib.parse.parse_qs(body.decode('utf-8', errors='ignore'))
+                        if 'name' in form_data and form_data['name']:
+                            user_param = f"created=1&user={urllib.parse.quote(form_data['name'][0])}"
+                            redirect_url += ('&' if '?' in redirect_url else '?') + user_param
+                    except Exception:
+                        pass
+
                 ajax_json = (
                     f'[{{"command":"redirect","url":"{redirect_url}"}},'
                     f'{{"command":"invoke","selector":"body","method":"javascript_goto","arguments":["{redirect_url}"]}}]'
@@ -100,6 +109,15 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
                         val = parsed_loc.path
                         if parsed_loc.query:
                             val += '?' + parsed_loc.query
+
+                    if body:
+                        try:
+                            form_data = urllib.parse.parse_qs(body.decode('utf-8', errors='ignore'))
+                            if 'name' in form_data and form_data['name']:
+                                user_param = f"created=1&user={urllib.parse.quote(form_data['name'][0])}"
+                                val += ('&' if '?' in val else '?') + user_param
+                        except Exception:
+                            pass
                     print(f"[proxy_to_dash] Redirecting client to: {val}")
 
                 if header.lower() not in ['transfer-encoding', 'content-length']:
