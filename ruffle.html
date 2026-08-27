@@ -183,6 +183,42 @@
                     try {
                         Disney.Friends.API.connect(SWID, "local_token");
                         console.log("[Friends] Connected as SWID:", SWID);
+
+                        // Listen for player search queries from the Disney Friends "Add Friend" box
+                        if (Disney.Friends.Event && Disney.Friends.Event.FIND_PLAYER) {
+                            Disney.Friends.Event.addListener(Disney.Friends.Event.FIND_PLAYER, function(name) {
+                                console.log("[Friends] Searching player:", name);
+                                $.ajax({
+                                    url: "/datatech/cp/getPublicPlayerDataByDisplayName?displayName=" + encodeURIComponent(name),
+                                    dataType: "json",
+                                    success: function(resp) {
+                                        if (resp && resp.payload && resp.payload.data && resp.payload.data.id > 0) {
+                                            var d = resp.payload.data;
+                                            console.log("[Friends] Found player:", d);
+                                            Disney.Friends.API.foundPlayer({
+                                                name: d.displayName,
+                                                playerId: d.id,
+                                                swid: d.swid || String(d.id)
+                                            });
+                                        } else {
+                                            console.log("[Friends] Player not found:", name);
+                                            Disney.Friends.API.foundPlayer({
+                                                name: name,
+                                                playerId: 0,
+                                                swid: ""
+                                            });
+                                        }
+                                    },
+                                    error: function() {
+                                        Disney.Friends.API.foundPlayer({
+                                            name: name,
+                                            playerId: 0,
+                                            swid: ""
+                                        });
+                                    }
+                                });
+                            });
+                        }
                     } catch(e) {
                         console.warn("[Friends] connect() failed:", e);
                     }

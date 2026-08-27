@@ -160,8 +160,54 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b'{"status":"ok"}')
 
+    def _lookup_penguin_db(self, name):
+        """Look up penguin ID and username/nickname from the PostgreSQL database."""
+        if not name:
+            return None
+
+        # Method 1: psycopg2 if installed
+        try:
+            import psycopg2
+            conn = psycopg2.connect(host="127.0.0.1", port=5432, user="postgres", password="postgres", dbname="postgres")
+            cur = conn.cursor()
+            cur.execute("SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER(%s) OR LOWER(nickname)=LOWER(%s) LIMIT 1", (name, name))
+            row = cur.fetchone()
+            conn.close()
+            if row:
+                return {"id": row[0], "username": row[1], "nickname": row[2]}
+        except Exception:
+            pass
+
+        # Method 2: docker exec wand-db-1 psql
+        try:
+            import subprocess
+            clean_name = ''.join(c for c in name if c.isalnum() or c in ' _-')
+            cmd = ["docker", "exec", "wand-db-1", "psql", "-U", "postgres", "-t", "-A", "-c",
+                   f"SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER('{clean_name}') OR LOWER(nickname)=LOWER('{clean_name}') LIMIT 1;"]
+            out = subprocess.check_output(cmd, timeout=3).decode('utf-8').strip()
+            if out:
+                parts = out.split('|')
+                return {"id": int(parts[0]), "username": parts[1], "nickname": parts[2]}
+        except Exception as e:
+            print(f"[_lookup_penguin_db] docker exec error: {e}")
+
+        # Method 3: sudo docker exec wand-db-1 psql
+        try:
+            import subprocess
+            clean_name = ''.join(c for c in name if c.isalnum() or c in ' _-')
+            cmd = ["sudo", "docker", "exec", "wand-db-1", "psql", "-U", "postgres", "-t", "-A", "-c",
+                   f"SELECT id, username, nickname FROM penguin WHERE LOWER(username)=LOWER('{clean_name}') OR LOWER(nickname)=LOWER('{clean_name}') LIMIT 1;"]
+            out = subprocess.check_output(cmd, timeout=3).decode('utf-8').strip()
+            if out:
+                parts = out.split('|')
+                return {"id": int(parts[0]), "username": parts[1], "nickname": parts[2]}
+        except Exception as e:
+            print(f"[_lookup_penguin_db] sudo docker exec error: {e}")
+
+        return None
+
     def _handle_datatech_get(self, raw_path, qs):
-        """Stub responses for the Disney Friends /datatech API used by the CP SWF.
+        """Responses for the Disney Friends /datatech API used by the CP SWF & Friends UI.
 
         The Show Friends button (and the friends list overlay) calls several endpoints:
           - /datatech/cp/getPublicPlayerDataByDisplayName  -> look up a player by name
@@ -174,21 +220,38 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         path_lower = raw_path.lower()
 
-        # Look up player by display name (used by "Find a Friend" search)
+        # Look up player by display name (used by "Find a Friend" search in Disney Friends panel)
         if 'getpublicplayerdatabydisplayname' in path_lower:
             display_name = (qs.get('displayName') or qs.get('displayname') or [''])[0]
-            payload = {
-                "status": 200,
-                "payload": {
-                    "data": {
-                        "displayName": display_name,
-                        "swid": "",
-                        "id": 0,
-                        "age": 0,
-                        "country": "US"
+            player = self._lookup_penguin_db(display_name)
+            if player:
+                print(f"[datatech] Found player for '{display_name}': id={player['id']}, name={player['nickname']}")
+                payload = {
+                    "status": 200,
+                    "payload": {
+                        "data": {
+                            "displayName": player["nickname"] or player["username"],
+                            "swid": str(player["id"]),
+                            "id": player["id"],
+                            "age": 0,
+                            "country": "US"
+                        }
                     }
                 }
-            }
+            else:
+                print(f"[datatech] Player not found for '{display_name}'")
+                payload = {
+                    "status": 404,
+                    "payload": {
+                        "data": {
+                            "displayName": display_name,
+                            "swid": "",
+                            "id": 0,
+                            "age": 0,
+                            "country": "US"
+                        }
+                    }
+                }
             self.send_json(json.dumps(payload).encode())
             return
 
