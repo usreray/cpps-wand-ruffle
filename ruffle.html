@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Club Penguin - Ruffle</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #003366;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #ruffle-container {
+            width: 960px;
+            height: 640px;
+            box-shadow: 0px 0px 20px rgba(0,0,0,0.8);
+            border-radius: 8px;
+            overflow: hidden;
+            background: #000;
+        }
+        ruffle-player {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+
+    <!-- 1. CONFIGURATION MUST BE DEFINED BEFORE THE LIBRARY -->
+    <script>
+        window.RufflePlayer = window.RufflePlayer || {};
+        window.RufflePlayer.config = {
+            "autoplay": "on",
+            "unmuteOverlay": "hidden",
+            "letterbox": "on",
+            "allowScriptAccess": true,
+            "logLevel": "warn",
+            "socketProxy": [
+                { "host": "127.0.0.1", "port": 6112, "proxyUrl": "ws://127.0.0.1:8080" },
+                { "host": "localhost", "port": 6112, "proxyUrl": "ws://127.0.0.1:8080" },
+                { "host": "203.0.113.10", "port": 6112, "proxyUrl": "ws://203.0.113.10:8080" },
+                { "host": "127.0.0.1", "port": 9875, "proxyUrl": "ws://127.0.0.1:8081" },
+                { "host": "localhost", "port": 9875, "proxyUrl": "ws://127.0.0.1:8081" },
+                { "host": "203.0.113.10", "port": 9875, "proxyUrl": "ws://203.0.113.10:8081" }
+            ]
+        };
+    </script>
+
+    <!-- 2. RUFFLE LIBRARY -->
+    <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+
+    <script>
+        window.addEventListener("DOMContentLoaded", () => {
+            const ruffle = window.RufflePlayer.newest();
+            const player = ruffle.createPlayer();
+            const container = document.getElementById("ruffle-container");
+            container.appendChild(player);
+
+            const base = "http://127.0.0.1:8888/media/play/";
+
+            player.load({
+                url: base + "v2/client/club_penguin.swf?clientVersion=21639",
+                allowScriptAccess: true,
+                parameters: {
+                    "clientVersion": "21639",
+                    "client_version": "21639",
+                    "baseUrl": base,
+                    "base": base,
+                    "webService": base + "web_service/",
+                    "webServiceUrl": base + "web_service/",
+                    "web_service": base + "web_service/",
+                    "web_service_path": base + "web_service/",
+                    "clientDirectory": base + "v2/client/",
+                    "clientPath": "v2/client/",
+                    "client_path": "v2/client/",
+                    "contentDirectory": base + "v2/content/",
+                    "contentPath": "v2/content/",
+                    "content_path": "v2/content/",
+                    "gamesDirectory": base + "v2/games/",
+                    "gamesPath": "v2/games/",
+                    "games_path": "v2/games/",
+                    "configPath": "v2/client/",
+                    "config_path": "v2/client/",
+                    "connectionID": "cp68294",
+                    "lang": "en",
+                    "configVersion": "1485906035",
+                    "contentVersion": "84421",
+                    "minigameVersion": "13162"
+                }
+            });
+        });
+    </script>
+</head>
+<body>
+    <div id="ruffle-container"></div>
+</body>
+</html>
