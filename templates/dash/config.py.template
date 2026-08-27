@@ -65,7 +65,7 @@ APPROVE_USERNAME : bool
     to be approved by an administrator.
 """
 USERNAME_FORCE_CASE = True
-APPROVE_USERNAME = False
+APPROVE_USERNAME = True
 
 
 """
