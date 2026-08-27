@@ -52,6 +52,44 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             resp = conn.getresponse()
             data = resp.read()
 
+            print(f"[proxy_to_dash] {method} {path} -> Dash status {resp.status}")
+            if resp.status >= 400 and len(data) < 300:
+                print(f"[proxy_to_dash] Dash response: {data.decode('utf-8', errors='ignore')}")
+
+            is_ajax = (self.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                       'X-Drupal-Ajax-Token' in self.headers or 
+                       'application/json' in self.headers.get('Accept', ''))
+
+            # If Dash returns a 302 redirect for an AJAX request, Drupal AJAX needs JSON commands to redirect
+            if resp.status in (301, 302, 303, 307) and is_ajax:
+                redirect_url = '/play/ruffle.html'
+                for header, val in resp.getheaders():
+                    if header.lower() == 'location':
+                        parsed_loc = urllib.parse.urlparse(val)
+                        if 'play' in parsed_loc.netloc or 'play' in parsed_loc.path or 'ruffle' in parsed_loc.path:
+                            redirect_url = '/play/ruffle.html'
+                        elif parsed_loc.path:
+                            redirect_url = parsed_loc.path
+                            if parsed_loc.query:
+                                redirect_url += '?' + parsed_loc.query
+
+                ajax_json = (
+                    f'[{{"command":"redirect","url":"{redirect_url}"}},'
+                    f'{{"command":"invoke","selector":"body","method":"javascript_goto","arguments":["{redirect_url}"]}}]'
+                ).encode('utf-8')
+
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json; charset=utf-8')
+                self.send_header('X-Drupal-Ajax-Token', '1')
+                for header, val in resp.getheaders():
+                    if header.lower() == 'set-cookie':
+                        self.send_header(header, val)
+                self.send_header('Content-Length', str(len(ajax_json)))
+                self.end_headers()
+                self.wfile.write(ajax_json)
+                print(f"[proxy_to_dash] Sent Drupal AJAX redirect command to: {redirect_url}")
+                return True
+
             self.send_response(resp.status)
             for header, val in resp.getheaders():
                 if header.lower() == 'location':
