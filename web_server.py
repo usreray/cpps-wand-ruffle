@@ -203,16 +203,21 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         # CP SWF navigates to these URLs via navigateToURL().
         # Proxy them to the correct Dash routes so the page stays on port 8888.
         PENGUIN_REDIRECTS = {
-            '/en/penguin/create':   '/create/vanilla/en',
-            '/fr/penguin/create':   '/create/vanilla/fr',
-            '/es/penguin/create':   '/create/vanilla/es',
-            '/pt/penguin/create':   '/create/vanilla/pt',
-            '/en/penguin/activate': '/activate/vanilla/en',
-            '/fr/penguin/activate': '/activate/vanilla/fr',
-            '/es/penguin/activate': '/activate/vanilla/es',
-            '/pt/penguin/activate': '/activate/vanilla/pt',
-            '/penguin/create':      '/create/vanilla/en',
-            '/penguin/activate':    '/activate/vanilla/en',
+            '/en/penguin/create':        '/create/vanilla/en',
+            '/en/penguin/create/game':   '/create/vanilla/en',
+            '/en/penguin/create/redeem': '/create/vanilla/en',
+            '/fr/penguin/create':        '/create/vanilla/fr',
+            '/fr/penguin/create/game':   '/create/vanilla/fr',
+            '/es/penguin/create':        '/create/vanilla/es',
+            '/es/penguin/create/game':   '/create/vanilla/es',
+            '/pt/penguin/create':        '/create/vanilla/pt',
+            '/pt/penguin/create/game':   '/create/vanilla/pt',
+            '/en/penguin/activate':      '/activate/vanilla/en',
+            '/fr/penguin/activate':      '/activate/vanilla/fr',
+            '/es/penguin/activate':      '/activate/vanilla/es',
+            '/pt/penguin/activate':      '/activate/vanilla/pt',
+            '/penguin/create':           '/create/vanilla/en',
+            '/penguin/activate':         '/activate/vanilla/en',
         }
         if raw_path in PENGUIN_REDIRECTS:
             dash_path = PENGUIN_REDIRECTS[raw_path]
