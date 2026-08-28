@@ -39,15 +39,19 @@ async def handle_client(ws, *args, target_port=6112):
         await ws.close()
         return
 
-    await asyncio.gather(
-        pipe_ws_to_tcp(ws, writer, target_port),
-        pipe_tcp_to_ws(reader, ws, target_port)
-    )
-    print(f"[-] Connection closed -> Port: {target_port}", flush=True)
+    try:
+        await asyncio.gather(
+            pipe_ws_to_tcp(ws, writer, target_port),
+            pipe_tcp_to_ws(reader, ws, target_port)
+        )
+    except Exception as e:
+        print(f"[-] Client session ended ({target_port}): {e}", flush=True)
+    finally:
+        print(f"[-] Connection closed -> Port: {target_port}", flush=True)
 
 async def main():
-    async with websockets.serve(lambda ws, *args: handle_client(ws, *args, target_port=6112), "0.0.0.0", 8080), \
-               websockets.serve(lambda ws, *args: handle_client(ws, *args, target_port=9875), "0.0.0.0", 8081):
+    async with websockets.serve(lambda ws, *args: handle_client(ws, *args, target_port=6112), "0.0.0.0", 8080, ping_interval=20, ping_timeout=20), \
+               websockets.serve(lambda ws, *args: handle_client(ws, *args, target_port=9875), "0.0.0.0", 8081, ping_interval=20, ping_timeout=20):
         print("[✓] Login WS Proxy 8080 -> TCP 6112 Ready", flush=True)
         print("[✓] World WS Proxy 8081 -> TCP 9875 Ready", flush=True)
         await asyncio.Future()

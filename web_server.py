@@ -498,7 +498,10 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(("", PORT), CPPSHandler) as httpd:
-    print(f"[✓] CPPS Web Server running on port {PORT}.")
+class ThreadingServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+with ThreadingServer(("", PORT), CPPSHandler) as httpd:
+    print(f"[✓] CPPS Multi-threaded Web Server running on port {PORT}.")
     httpd.serve_forever()
