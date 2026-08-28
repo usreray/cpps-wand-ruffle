@@ -368,6 +368,14 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header('Content-Type', mime_type or 'application/octet-stream')
+        # The media tree consists of versioned/static game assets. Let browsers
+        # reuse them between loads instead of downloading SWFs, images and data
+        # files again. Keep the HTML launcher uncached so configuration changes
+        # and local development edits take effect immediately.
+        if target.startswith(DIRECTORY):
+            self.send_header('Cache-Control', 'public, max-age=604800')
+        else:
+            self.send_header('Cache-Control', 'no-cache')
         self.send_header('Content-Length', str(os.path.getsize(target)))
         self.end_headers()
         with open(target, 'rb') as f:
@@ -383,6 +391,24 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
     def list_directory(self, path):
         self.send_error(404, "File not found")
         return None
+
+    def serve_play_static(self, raw_path):
+        """Serve Friends configuration files without scanning all media files."""
+        if raw_path == '/services':
+            parts = ['services']
+        elif raw_path.startswith('/content/') or raw_path.startswith(('/en/', '/fr/', '/es/', '/pt/', '/de/', '/ru/')):
+            parts = raw_path.strip('/').split('/')
+        else:
+            return False
+
+        if not parts or '..' in parts:
+            return False
+
+        target = os.path.join(DIRECTORY, 'play', *parts)
+        if os.path.isfile(target):
+            self.send_file(target)
+            return True
+        return False
 
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
@@ -463,13 +489,18 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_datatech_get(raw_path, qs)
             return
 
-        # 2. Direct file path matching
+        # 3. Friends bootstrap JSONP files have fixed locations. Avoid a full
+        # media-directory walk for every small configuration request.
+        if self.serve_play_static(raw_path):
+            return
+
+        # 4. Direct file path matching
         direct_path = self.translate_path(self.path)
         if os.path.exists(direct_path) and not os.path.isdir(direct_path):
             self.send_file(direct_path)
             return
 
-        # 3. Smart Scored File Search
+        # 5. Smart Scored File Search
         filename = os.path.basename(raw_path)
         if filename and not filename.startswith("start-module"):
             parts = [p.lower() for p in raw_path.strip('/').split('/') if p]
@@ -498,7 +529,10 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         return super().do_GET()
 
-socketserver.TCPServer.allow_reuse_address = True
-with socketserver.TCPServer(("", PORT), CPPSHandler) as httpd:
-    print(f"[✓] CPPS Web Server running on port {PORT}.")
+class ThreadingServer(socketserver.ThreadingTCPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+with ThreadingServer(("", PORT), CPPSHandler) as httpd:
+    print(f"[✓] CPPS Multi-threaded Web Server running on port {PORT}.")
     httpd.serve_forever()
