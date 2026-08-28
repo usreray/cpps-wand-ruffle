@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Club Penguin</title>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
     <style>
         * { box-sizing: border-box; }
         body, html {
@@ -198,26 +199,14 @@
         })();
     </script>
 
-    <!-- 2. jQuery + UI + libs required by the Disney Friends library -->
-    <script src="/media/play/js/lib/jquery.min.js"></script>
-    <script src="/media/play/js/lib/jquery.ui.min.js"></script>
-    <script src="/media/play/js/lib/libs.min.js"></script>
-
-    <!-- 3. Disney Friends init (loads disney-friends-with-ui-min.js dynamically) -->
+    <!-- Disney Friends loads its jQuery, UI and utility dependencies itself. -->
     <script src="/media/play/js/disney-friends-ostrta-min.js"></script>
 
-    <!-- 4. Ruffle player library -->
+    <!-- Ruffle player library -->
     <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
 
     <script>
         window.addEventListener("DOMContentLoaded", () => {
-            // Keep the game singleton even if this document is embedded or its
-            // startup script is evaluated more than once by an integration.
-            if (window.__clubPenguinRuffleBooted) {
-                return;
-            }
-            window.__clubPenguinRuffleBooted = true;
-
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('created') === '1') {
                 const user = urlParams.get('user') || urlParams.get('u') || 'Penguin';
