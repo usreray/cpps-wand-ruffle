@@ -392,6 +392,24 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         self.send_error(404, "File not found")
         return None
 
+    def serve_play_static(self, raw_path):
+        """Serve Friends configuration files without scanning all media files."""
+        if raw_path == '/services':
+            parts = ['services']
+        elif raw_path.startswith('/content/') or raw_path.startswith(('/en/', '/fr/', '/es/', '/pt/', '/de/', '/ru/')):
+            parts = raw_path.strip('/').split('/')
+        else:
+            return False
+
+        if not parts or '..' in parts:
+            return False
+
+        target = os.path.join(DIRECTORY, 'play', *parts)
+        if os.path.isfile(target):
+            self.send_file(target)
+            return True
+        return False
+
     def do_GET(self):
         parsed = urllib.parse.urlparse(self.path)
         raw_path = parsed.path
@@ -471,13 +489,18 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
             self._handle_datatech_get(raw_path, qs)
             return
 
-        # 2. Direct file path matching
+        # 3. Friends bootstrap JSONP files have fixed locations. Avoid a full
+        # media-directory walk for every small configuration request.
+        if self.serve_play_static(raw_path):
+            return
+
+        # 4. Direct file path matching
         direct_path = self.translate_path(self.path)
         if os.path.exists(direct_path) and not os.path.isdir(direct_path):
             self.send_file(direct_path)
             return
 
-        # 3. Smart Scored File Search
+        # 5. Smart Scored File Search
         filename = os.path.basename(raw_path)
         if filename and not filename.startswith("start-module"):
             parts = [p.lower() for p in raw_path.strip('/').split('/') if p]
