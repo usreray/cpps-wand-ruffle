@@ -368,6 +368,14 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header('Content-Type', mime_type or 'application/octet-stream')
+        # The media tree consists of versioned/static game assets. Let browsers
+        # reuse them between loads instead of downloading SWFs, images and data
+        # files again. Keep the HTML launcher uncached so configuration changes
+        # and local development edits take effect immediately.
+        if target.startswith(DIRECTORY):
+            self.send_header('Cache-Control', 'public, max-age=604800')
+        else:
+            self.send_header('Cache-Control', 'no-cache')
         self.send_header('Content-Length', str(os.path.getsize(target)))
         self.end_headers()
         with open(target, 'rb') as f:

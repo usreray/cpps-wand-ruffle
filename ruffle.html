@@ -211,6 +211,13 @@
 
     <script>
         window.addEventListener("DOMContentLoaded", () => {
+            // Keep the game singleton even if this document is embedded or its
+            // startup script is evaluated more than once by an integration.
+            if (window.__clubPenguinRuffleBooted) {
+                return;
+            }
+            window.__clubPenguinRuffleBooted = true;
+
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.get('created') === '1') {
                 const user = urlParams.get('user') || urlParams.get('u') || 'Penguin';
