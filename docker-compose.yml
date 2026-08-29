@@ -9,7 +9,7 @@ services:
     networks:
       - wand
     ports:
-      - 5432:5432
+      - 127.0.0.1:5432:5432
     volumes:
       - ./houdini/houdini.sql:/docker-entrypoint-initdb.d/houdini.sql
       - ./.data:/var/lib/postgresql/data
