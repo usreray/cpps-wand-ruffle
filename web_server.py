@@ -11,6 +11,22 @@ PORT = 8888
 DIRECTORY = "/opt/cpps/wand/vanilla-media"
 DASH_HOST = "127.0.0.1"
 DASH_PORT = 3000
+ENV_FILE = "/opt/cpps/wand/.env"
+
+def get_game_address():
+    """Read GAME_ADDRESS from the environment or the wand .env file."""
+    address = os.environ.get('GAME_ADDRESS')
+    if address:
+        return address
+    try:
+        with open(ENV_FILE) as f:
+            for line in f:
+                key, _, value = line.strip().partition('=')
+                if key == 'GAME_ADDRESS' and value:
+                    return value.strip().strip('"\'')
+    except OSError:
+        pass
+    return '127.0.0.1'
 
 class CPPSHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
@@ -443,7 +459,15 @@ class CPPSHandler(http.server.SimpleHTTPRequestHandler):
         if raw_path == "/play/ruffle.html":
             target = "/opt/cpps/wand/ruffle.html"
             if os.path.isfile(target):
-                self.send_file(target)
+                with open(target, 'rb') as f:
+                    content = f.read()
+                # Map the game server address sent by Houdini to the WebSocket proxies
+                content = content.replace(b'__GAME_ADDRESS__', get_game_address().encode('utf-8'))
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html; charset=utf-8')
+                self.send_header('Content-Length', str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
                 return
 
         # CP SWF navigates to these URLs via navigateToURL().
